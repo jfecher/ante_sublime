@@ -1,0 +1,137 @@
+%YAML 1.2
+---
+name: Ante
+file_extensions: [an]
+scope: source.ante
+
+variables:
+  ident: '\b[A-Za-z_][A-Za-z_0-9]*\b'
+  type: '\b[A-Z][A-Za-z0-9]*\b'
+  integer: '\b[0-9]+{{int_suffix}}?\b'
+  int_suffix: '([ui](8|16|32|64))'
+  float: '\b[0-9]+\.[0-9]+{{float_suffix}}?\b'
+  float_suffix: '(f(16|32|64))'
+
+  all_keywords: if|elif|else|import|mut|with|for|in|do|while|let|export|continue|break|return|this|is|ext|new|match|trait|module|ante|type|where|when|var|and|or|xor|not|then|global
+
+  acceptable_keywords: if|elif|else|import|with|in|do|while|continue|break|return|is|new|match|ante|where|when|and|or|xor|not|then
+
+  #symbols that may be found before a function call
+  acceptable_symbols: '[\.=\+\-\*/%@\(\[{]'
+
+contexts:
+    main:
+      - include: types
+      - include: integer_constant
+      - include: float_constant
+      - include: function_definition
+      - include: function_call
+      - include: char_or_typevar
+      - match: '"'
+        push: string
+      - match: \(
+        push: brackets
+      - match: \)
+        scope: invalid.illegal.stray-bracket-end
+      - match: '^ *(\t)'
+        captures:
+          1: invalid.illegal.ante
+
+    function_call:
+    #  - match: '([\)]"\'A-Za-z_0-9] *)@<![a-z]\w*(((( *[(\'"\[\])|( +\w)))( *(do|ante|then|and|or|with)@!))'
+    #  - match: '([\)]"\'A-Za-z_0-9] *)@<![a-z]\w*((?=(( *[(\'"\[\])|( +\w)))(!= *(do|ante|then|and|or|with)))'
+      #- match: '[a-z]\w*(?=(( *["\(\[{])|( +\w+)))(?!( +(do|then|and|or|with|in)))'
+      #  scope: entity.name.function.ante
+
+      - match: '(?<={{acceptable_symbols}}) *[a-z]\w*(?=(( *["\(\[{])|( +\w+)))(?!( +(do|then|and|or|with|in)))'
+        scope: entity.name.function.ante
+
+      - match: '(?<={{acceptable_keywords}}) +[a-z]\w*(?=(( *["\(\[{])|( +\w+)))(?!( +(do|then|and|or|with|in)))'
+        scope: entity.name.function.ante
+
+      - match: '^ *(?!{{all_keywords}})[a-z]\w*(?=(( *["\(\[{])|( +\w+)))(?!( +(do|then|and|or|with|in)))'
+        scope: entity.name.function.ante
+
+    brackets:
+      - match: '\)'
+        pop: true
+      - include: main
+
+    keywords:
+      - match: \b(if|elif|else|import|mut|with|for|in|do|while|let|export|continue|break|return|this|is|ext|new|match|trait|module|ante|type|where|when|var|and|or|xor|not|then|do|global)\b
+        scope: keyword.control.ante
+
+    integer_constant:
+      - match: '\b{{integer}}\b'
+        scope: constant.numeric.integer.ante
+
+    float_constant:
+      - match: '\b{{float}}\b'
+        scope: constant.numeric.float.ante
+
+    types:
+      - match: \b(i8|i16|i32|i64|u8|u16|u32|u64|f16|f32|f64|isz|usz|c8|c32|void|bool)\b
+        scope: storage.type.ante
+      - match: '{{type}}'
+        scope: storage.type.ante
+
+    prototype:
+      - include: singleline_comment
+      - include: multiline_comment
+      - include: keywords
+
+    multiline_comment:
+      - match: '/\*'
+        scope: punctuation.definition.comment.ante
+        push: mlcomment
+
+    singleline_comment:
+      - match: '//.*$'
+        scope: comment.line.ante
+
+    function_definition:
+      - match: '\bfun\b'
+        scope: keyword.control.ante
+        push:
+          - include: types  #In Module.name functions, highlight Module as a type
+          - match: '[a-z_][A-Za-z_]*'
+            scope: entity.name.function.ante
+
+          # operator overload functions
+          - match: '\(.*\)'
+            scope: entity.name.function.ante
+          - match: ':'
+            pop: true
+
+
+#    function_call:
+#      - match: '([\)]"\'A-Za-z_0-9] *)@<![a-z]\w*(((( *[(\'"\[\])|( +\w))@=)( *(do|ante|then|and|or|with)@!))'
+#        scope: entity.name.function.ante
+
+    mlcomment:
+      - meta_include_prototype: false
+      - include: multiline_comment
+      - meta_scope: comment.block.ante
+      - match: '\*/'
+        pop: true
+
+    char_or_typevar:
+      - match: "'.'"
+        scope: string.quoted.double.ante
+
+      # matches escape sequence chars
+      - match: "'\\\\(\\d+|\\S)'"
+        scope: string.quoted.double.ante
+
+      - match: "'[a-z]+\\b"
+        scope: storage.type.ante
+
+
+    string:
+      - meta_include_prototype: false
+      - meta_scope: string.quoted.double.ante
+      - match: \\.
+        scope: constant.character.escape.ante
+      - match: '"'
+        pop: true
+
